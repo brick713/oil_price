@@ -1,0 +1,37 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "Add Oil Price Monitor",
+                "description": "Configure oil price monitoring and vehicle information",
+                "data": {
+                    "province": "Province",
+                    "car_model": "Car Model (e.g., Mercedes GLC300L)",
+                    "tank_size": "Tank Size (liters)",
+                    "fuel_type": "Fuel Type",
+                    "scan_interval": "Update interval (seconds)"
+                }
+            }
+        },
+        "error": {
+            "already_configured": "This configuration already exists"
+        },
+        "abort": {
+            "already_configured": "This configuration already exists"
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Oil Price Options",
+                "description": "Modify vehicle and update settings",
+                "data": {
+                    "car_model": "Car Model",
+                    "tank_size": "Tank Size (liters)",
+                    "fuel_type": "Fuel Type",
+                    "scan_interval": "Update interval (seconds)"
+                }
+            }
+        }
+    }
+}

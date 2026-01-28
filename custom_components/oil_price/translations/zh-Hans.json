@@ -1,0 +1,37 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "添加国内油价",
+                "description": "配置油价监控和车辆信息",
+                "data": {
+                    "province": "省份",
+                    "car_model": "车型名称（如：奔驰GLC300L）",
+                    "tank_size": "油箱容量（升）",
+                    "fuel_type": "常用油品类型",
+                    "scan_interval": "更新间隔（秒）"
+                }
+            }
+        },
+        "error": {
+            "already_configured": "该配置已存在"
+        },
+        "abort": {
+            "already_configured": "该配置已存在"
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "国内油价选项",
+                "description": "修改车辆和更新设置",
+                "data": {
+                    "car_model": "车型名称",
+                    "tank_size": "油箱容量（升）",
+                    "fuel_type": "常用油品类型",
+                    "scan_interval": "更新间隔（秒）"
+                }
+            }
+        }
+    }
+}
