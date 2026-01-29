@@ -1,0 +1,7 @@
+{
+  "name": "国内油价",
+  "content_in_root": false,
+  "country": "cn",
+  "render_readme": true,
+  "filename": "custom_components/oil_price/manifest.json"
+}
