@@ -95,9 +95,10 @@ async def async_setup_entry(
     car_model = entry.data.get(CONF_CAR_MODEL, "")
     tank_size = entry.data.get(CONF_TANK_SIZE, DEFAULT_TANK_SIZE)
     fuel_type = entry.data.get(CONF_FUEL_TYPE, DEFAULT_FUEL_TYPE)
+    enable_forecast = entry.data.get(CONF_ENABLE_FORECAST, DEFAULT_ENABLE_FORECAST)
 
     # 创建数据协调器（用于共享数据获取，避免重复请求）
-    coordinator = OilPriceDataCoordinator(hass, province)
+    coordinator = OilPriceDataCoordinator(hass, province, enable_forecast)
 
     sensors = []
     
@@ -124,7 +125,15 @@ async def async_setup_entry(
             entry_id=entry.entry_id,
         )
     )
-
+    # 创建预告信息传感器（如果启用预告功能）
+    if enable_forecast:
+        sensors.append(
+            OilPriceForecastSensor(
+                coordinator=coordinator,
+                province=province,
+                entry_id=entry.entry_id,
+            )
+        )
     async_add_entities(sensors, True)
 
 
@@ -135,13 +144,26 @@ class OilPriceDataCoordinator:
     避免重复发送HTTP请求。
     """
 
-    def __init__(self, hass: HomeAssistant, province: str) -> None:
+    def __init__(self, hass: HomeAssistant, province: str, enable_forecast: bool = True) -> None:
         """初始化协调器."""
         self._hass = hass
         self._province = province
+        self._enable_forecast = enable_forecast # 预告信息开关
         self._prices: dict[str, float] = {}
         self._update_time: str | None = None
         self._last_fetch_success = False
+        self._forecast_info: str | None = None
+        self._is_adjustment_today: bool = False
+
+    @property
+    def forecast_info(self) -> str | None:
+        """返回预告信息."""
+        return self._forecast_info
+
+    @property
+    def is_adjustment_today(self) -> bool:
+        """返回是否为调价日."""
+        return self._is_adjustment_today
 
     @property
     def prices(self) -> dict[str, float]:
@@ -159,7 +181,7 @@ class OilPriceDataCoordinator:
         return self._last_fetch_success and bool(self._prices)
 
     async def async_update(self) -> None:
-        """异步更新油价数据."""
+        """异步更新油价数据和预告信息."""
         session = async_get_clientsession(self._hass)
         
         try:
@@ -194,6 +216,8 @@ class OilPriceDataCoordinator:
                 else:
                     _LOGGER.warning("解析油价数据失败，未找到有效数据")
                     self._last_fetch_success = False
+            if self._enable_forecast:
+                await self._update_forecast_info(session)
                     
         except aiohttp.ClientError as err:
             _LOGGER.error("HTTP请求错误: %s", err)
@@ -202,6 +226,75 @@ class OilPriceDataCoordinator:
             _LOGGER.error("获取油价时发生意外错误: %s", err)
             self._last_fetch_success = False
 
+    async def _update_forecast_info(self, session: aiohttp.ClientSession) -> None:
+        """更新预告信息."""
+        try:
+            # 获取预告信息的URL
+            async with session.get(DATA_SOURCE_URL, timeout=aiohttp.ClientTimeout(total=30)) as response:
+                if response.status != 200:
+                    _LOGGER.warning("获取预告信息失败，HTTP状态码: %s", response.status)
+                    return
+                
+                html = await response.text()
+                self._parse_forecast(html)
+        except Exception as err:
+            _LOGGER.error("HTTP请求错误（预告信息）: %s", err)
+
+    def _parse_forecast(self, html: str) -> None:
+        """解析HTML页面提取预告信息."""
+        try:
+            soup = BeautifulSoup(html, "html.parser")
+            forecast_text = ""
+            # 查找预告信息容器
+            adjustment_elements = soup.find_all(string=re.compile(r'.*调整.*'))
+            for element in adjustment_elements:
+                text = element.get_text.strip()
+                if any(keyword in text for keyword in ["汽油", "油价", "柴油"]):
+                    forecast_text = text
+                    break
+            
+            if forecast_text:
+                _LOGGER.debug("提取到预告信息: %s", forecast_text)
+                self._extract_and_combine_forecast(forecast_text)
+            else:
+                self._forecast_info = "暂无预告信息"
+                self._is_adjustment_today = False
+
+        except Exception as err:
+            _LOGGER.error("解析预告信息时发生错误: %s", err)
+            self._forecast_info = "解析预告信息时出错"
+            self._is_adjustment_today = False
+    
+    def _extract_and_combine_forecast(self, text: str) -> None:
+        """从预告文本中提取日期并组合完整预告信息."""
+        adjustment_date = "近期"
+        direction = "调整"
+        amount = ""
+        # 提取日期
+        date_match = re.search(r'(\d{1,2}月\d{1,2}日\d{1,2}时)调整', text)
+        if date_match:
+            adjustment_date = date_match.group(1)
+            # 检查是否为今天
+            # 检查是否是今日调整
+            today = datetime.now().strftime("%m月%d日")
+            self._is_adjustment_today = today in adjustment_date
+        # 提取调整幅度
+        if "上涨" in text:
+            direction = "上涨"
+            amount_match = re.search(r'上涨([0-9.]+)元/升', text)
+            if amount_match:
+                amount = f"{amount_match.group(1)}元/升"
+        elif "下跌" in text:
+            direction = "下跌"
+            amount_match = re.search(r'下跌([0-9.]+)元/升', text)
+            if amount_match:
+                amount = f"{amount_match.group(1)}元/升"
+        # 组合完整预告信息
+        if amount:
+            self._forecast_info = f"{adjustment_date}{direction}{amount}"
+        else:
+            self._forecast_info = f"{adjustment_date}油价{direction}"
+        
     def _parse_prices(self, html: str) -> dict[str, float]:
         """解析HTML页面提取油价数据.
         
@@ -394,6 +487,48 @@ class FullTankCostSensor(SensorEntity):
             "unit_price": f"{current_price}元/升" if current_price else None,
         }
 
+    async def async_update(self) -> None:
+        """异步更新传感器状态."""
+        await self._coordinator.async_update()
+
+class OilPriceForecastSensor(SensorEntity):
+    """油价预告信息传感器.
+    
+    显示即将到来的油价调整预告信息。
+    """
+
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:calendar-clock"
+
+    def __init__(self, coordinator: OilPriceDataCoordinator, province: str, entry_id: str) -> None:
+        """初始化油价预告信息传感器."""
+        self._coordinator = coordinator
+        self._province = province
+        self._entry_id = entry_id
+
+        # 设置实体属性
+        self._attr_unique_id = f"{DOMAIN}_{province}_forecast"
+        self._attr_name = f"{province}油价预告信息"
+    
+    @property
+    def native_value(self) -> str:
+        """返回预告信息."""
+        return self._coordinator.forecast_info or "暂无预告信息"
+    
+    @property
+    def available(self) -> bool:
+        """返回传感器是否可用."""
+        return self._coordinator.available
+    
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """返回传感器额外属性."""
+        return {
+            ATTR_PROVINCE: self._province,
+            ATTR_UPDATE_TIME: self._coordinator.update_time,
+            ATTR_NEXT_ADJUSTMENT: self._coordinator.forecast_info,
+            ATTR_IS_ADJUSTMENT_TODAY: self._coordinator.is_adjustment_today,
+        }
     async def async_update(self) -> None:
         """异步更新传感器状态."""
         await self._coordinator.async_update()

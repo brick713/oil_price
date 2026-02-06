@@ -1,7 +1,21 @@
+'''
+Author: brick713 hibrick713@gmail.com
+Date: 2026-01-30 11:06:37
+LastEditors: brick713 hibrick713@gmail.com
+LastEditTime: 2026-02-06 17:56:14
+FilePath: /oil_price/custom_components/oil_price/const.py
+Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+'''
 """国内油价集成的常量定义."""
 
 # 集成域名
-DOMAIN = "oil_price"
+DOMAIN = "Oil_Price"
+
+# 预告传感器属性键（简化版）
+ATTR_NEXT_ADJUSTMENT = "next_adjustment"  # 整合的预告信息
+ATTR_IS_ADJUSTMENT_TODAY = "is_adjustment_today"
+CONF_ENABLE_FORECAST = "enable_forecast"  # 配置项：是否启用预告信息
+DEFAULT_ENABLE_FORECAST = True
 
 # 默认配置
 DEFAULT_PROVINCE = "广东"  # 默认省份
