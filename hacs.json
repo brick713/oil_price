@@ -1,5 +1,5 @@
 {
-  "name": "国内油价",
+  "name": "汽油价格监控",
   "content_in_root": false,
   "country": "cn",
   "render_readme": true,

@@ -21,6 +21,8 @@ from .const import (
     DEFAULT_FUEL_TYPE,
     PROVINCE_LIST,
     OIL_TYPES,
+    CONF_ENABLE_FORECAST,
+    DEFAULT_ENABLE_FORECAST,
 )
 
 # 油品类型选择列表
@@ -44,9 +46,14 @@ class OilPriceConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
 
         if user_input is not None:
+            user_input.setdefault(CONF_ENABLE_FORECAST, DEFAULT_ENABLE_FORECAST)
+            user_input.setdefault(CONF_CAR_MODEL, DEFAULT_CAR_MODEL)
+            user_input.setdefault(CONF_TANK_SIZE, DEFAULT_TANK_SIZE)
+            user_input.setdefault(CONF_FUEL_TYPE, DEFAULT_FUEL_TYPE)
+            user_input.setdefault(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+            
             province = user_input[CONF_PROVINCE]
             car_model = user_input.get(CONF_CAR_MODEL, "")
-            
             # 生成唯一ID
             unique_suffix = f"{province}_{car_model}" if car_model else province
             await self.async_set_unique_id(f"{DOMAIN}_{unique_suffix}")
@@ -73,6 +80,7 @@ class OilPriceConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): vol.All(
                         vol.Coerce(int), vol.Range(min=600, max=86400)
                     ),
+                    vol.Optional(CONF_ENABLE_FORECAST, default=DEFAULT_ENABLE_FORECAST): bool,
                 }
             ),
             errors=errors,
@@ -87,6 +95,10 @@ class OilPriceConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 class OilPriceOptionsFlow(config_entries.OptionsFlow):
     """处理国内油价集成的选项配置."""
+    
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """初始化选项配置流程."""
+        self.config_entry = config_entry
 
     async def async_step_init(self, user_input: dict | None = None) -> FlowResult:
         """处理选项配置的初始步骤."""
@@ -113,6 +125,10 @@ class OilPriceOptionsFlow(config_entries.OptionsFlow):
                         CONF_SCAN_INTERVAL, 
                         default=self.config_entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
                     ): vol.All(vol.Coerce(int), vol.Range(min=600, max=86400)),
+                    vol.Optional(
+                        CONF_ENABLE_FORECAST, 
+                        default=self.config_entry.data.get(CONF_ENABLE_FORECAST, DEFAULT_ENABLE_FORECAST)
+                    ): bool,
                 }
             ),
         )

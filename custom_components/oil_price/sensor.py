@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from datetime import datetime
 from typing import Any
 
@@ -32,6 +33,8 @@ from .const import (
     DATA_SOURCE_URL,
     ATTR_UPDATE_TIME,
     ATTR_PROVINCE,
+    ATTR_NEXT_ADJUSTMENT,
+    ATTR_IS_ADJUSTMENT_TODAY,
 )
 
 _LOGGER = logging.getLogger(__name__)
