@@ -35,6 +35,8 @@ from .const import (
     ATTR_PROVINCE,
     ATTR_NEXT_ADJUSTMENT,
     ATTR_IS_ADJUSTMENT_TODAY,
+    CONF_ENABLE_FORECAST, 
+    DEFAULT_ENABLE_FORECAST,
 )
 
 _LOGGER = logging.getLogger(__name__)
