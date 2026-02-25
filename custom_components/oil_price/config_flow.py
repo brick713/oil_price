@@ -33,6 +33,45 @@ FUEL_TYPE_OPTIONS = {
     "diesel_0": "0号柴油",
 }
 
+class OilPriceOptionsFlow(config_entries.OptionsFlow):
+    """处理国内油价集成的选项配置."""
+    
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """初始化选项配置流程."""
+        self.config_entry = config_entry
+
+    async def async_step_init(self, user_input: dict | None = None) -> FlowResult:
+        """处理选项配置的初始步骤."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_CAR_MODEL, 
+                        default=self.config_entry.data.get(CONF_CAR_MODEL, "")
+                    ): str,
+                    vol.Optional(
+                        CONF_TANK_SIZE, 
+                        default=self.config_entry.data.get(CONF_TANK_SIZE, DEFAULT_TANK_SIZE)
+                    ): vol.All(vol.Coerce(int), vol.Range(min=20, max=200)),
+                    vol.Optional(
+                        CONF_FUEL_TYPE, 
+                        default=self.config_entry.data.get(CONF_FUEL_TYPE, DEFAULT_FUEL_TYPE)
+                    ): vol.In(FUEL_TYPE_OPTIONS),
+                    vol.Optional(
+                        CONF_SCAN_INTERVAL, 
+                        default=self.config_entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+                    ): vol.All(vol.Coerce(int), vol.Range(min=600, max=86400)),
+                    vol.Optional(
+                        CONF_ENABLE_FORECAST, 
+                        default=self.config_entry.data.get(CONF_ENABLE_FORECAST, DEFAULT_ENABLE_FORECAST)
+                    ): bool,
+                }
+            ),
+        )
 
 class OilPriceConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """处理国内油价集成的配置流程."""
@@ -91,44 +130,3 @@ class OilPriceConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> config_entries.OptionsFlow:
         """获取选项配置流程."""
         return OilPriceOptionsFlow(config_entry)
-
-
-class OilPriceOptionsFlow(config_entries.OptionsFlow):
-    """处理国内油价集成的选项配置."""
-    
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        """初始化选项配置流程."""
-        self.config_entry = config_entry
-
-    async def async_step_init(self, user_input: dict | None = None) -> FlowResult:
-        """处理选项配置的初始步骤."""
-        if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
-
-        return self.async_show_form(
-            step_id="init",
-            data_schema=vol.Schema(
-                {
-                    vol.Optional(
-                        CONF_CAR_MODEL, 
-                        default=self.config_entry.data.get(CONF_CAR_MODEL, "")
-                    ): str,
-                    vol.Optional(
-                        CONF_TANK_SIZE, 
-                        default=self.config_entry.data.get(CONF_TANK_SIZE, DEFAULT_TANK_SIZE)
-                    ): vol.All(vol.Coerce(int), vol.Range(min=20, max=200)),
-                    vol.Optional(
-                        CONF_FUEL_TYPE, 
-                        default=self.config_entry.data.get(CONF_FUEL_TYPE, DEFAULT_FUEL_TYPE)
-                    ): vol.In(FUEL_TYPE_OPTIONS),
-                    vol.Optional(
-                        CONF_SCAN_INTERVAL, 
-                        default=self.config_entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
-                    ): vol.All(vol.Coerce(int), vol.Range(min=600, max=86400)),
-                    vol.Optional(
-                        CONF_ENABLE_FORECAST, 
-                        default=self.config_entry.data.get(CONF_ENABLE_FORECAST, DEFAULT_ENABLE_FORECAST)
-                    ): bool,
-                }
-            ),
-        )

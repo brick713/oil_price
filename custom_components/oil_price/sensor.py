@@ -253,11 +253,22 @@ class OilPriceDataCoordinator:
             # 查找预告信息容器
             adjustment_elements = soup.find_all(string=re.compile(r'.*调整.*'))
             for element in adjustment_elements:
-                text = element.get_text.strip()
+                if isinstance(element, str):
+                    text = element.strip()
+                else:
+                    text = element.get_text(strip=True)
                 if any(keyword in text for keyword in ["汽油", "油价", "柴油"]):
                     forecast_text = text
                     break
-            
+
+            if not forecast_text:
+                forecast_text = soup.find_all('span', style=re.compile(r'color.*#F00|color.*red', re.IGNORECASE))
+                for span in forecast_text:
+                    text = span.get_text(strip=True)
+                    if any(keyword in text for keyword in ["调整", "油价", "上涨", "下跌", "汽油", "柴油", "跌"]):
+                        forecast_text = text
+                        break
+
             if forecast_text:
                 _LOGGER.debug("提取到预告信息: %s", forecast_text)
                 self._extract_and_combine_forecast(forecast_text)
