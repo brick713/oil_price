@@ -249,38 +249,52 @@ class OilPriceDataCoordinator:
         """解析HTML页面提取预告信息."""
         try:
             soup = BeautifulSoup(html, "html.parser")
-            forecast_text = ""
-            # 查找预告信息容器
-            adjustment_elements = soup.find_all(string=re.compile(r'.*调整.*'))
-            for element in adjustment_elements:
-                if isinstance(element, str):
-                    text = element.strip()
+            forecast_div = soup.find("div", style=re.compile(r'border:solid 1px #EA5146; background-color:#F2F7FC;'))
+            if forecast_div:
+                div_text = forecast_div.get_text(strip=False)
+                _LOGGER.debug("找到预告div，内容: %s", div_text)
+                time_match = re.search(r'油价(\d{1,2}月\d{1,2}日\d{1,2}时)调整', div_text)
+                adjustment_match = re.search(r'(上涨|下跌)([\d.]+元/升-[\d.]+元/升)', div_text)
+                if time_match and adjustment_match:
+                    adjustment_date = time_match.group(1)
+                    direction = adjustment_match.group(1)
+                    amount = adjustment_match.group(2)
+                    self._forecast_info = f"{adjustment_date}{direction}{amount}"
+                    # 检查是否为今天的调整
+                    today = datetime.now()
+                    date_match = re.match(r'(\d{1,2})月(\d{1,2})日', adjustment_date)
+                    if date_match:
+                        adjustment_month = int(date_match.group(1))
+                        adjustment_day = int(date_match.group(2))
+                        if today.month == adjustment_month and today.day == adjustment_day:
+                            self._is_adjustment_today = True
+                        else:
+                            self._is_adjustment_today = False
+                _LOGGER.debug("预告信息解析结果: %s", self._forecast_info)
+                return
                 else:
-                    text = element.get_text(strip=True)
-                if any(keyword in text for keyword in ["汽油", "油价", "柴油"]):
-                    forecast_text = text
-                    break
-
-            if not forecast_text:
-                forecast_text = soup.find_all('span', style=re.compile(r'color.*#F00|color.*red', re.IGNORECASE))
-                for span in forecast_text:
-                    text = span.get_text(strip=True)
-                    if any(keyword in text for keyword in ["调整", "油价", "上涨", "下跌", "汽油", "柴油", "跌"]):
-                        forecast_text = text
-                        break
-
-            if forecast_text:
-                _LOGGER.debug("提取到预告信息: %s", forecast_text)
-                self._extract_and_combine_forecast(forecast_text)
+                    _LOGGER.warning("预告信息解析失败，未找到有效数据")
+        forecast_text = ""
+        adjustment_elements = soup.find_all(string=re.compile(r'.*调整.*'))
+        for element in adjustment_elements:
+            if isinstance(element, str):
+                text = element.strip()
             else:
-                self._forecast_info = "暂无预告信息"
-                self._is_adjustment_today = False
-
-        except Exception as err:
-            _LOGGER.error("解析预告信息时发生错误: %s", err)
-            self._forecast_info = "解析预告信息时出错"
+                text = str(element).strip()
+            if any(keyword in text for keyword in ["调整", "油价", "上涨", "下跌", "汽油", "柴油", "跌"]):
+                forecast_text += text + " "
+                break  # 只取第一个匹配的预告信息
+        if forecast_text:
+            _LOGGER.debug("找到预告文本，内容: %s", forecast_text)
+            self._extract_and_combine_forecast(forecast_text)
+        else:
+            self._forecast_info = "暂无预告信息"
             self._is_adjustment_today = False
-    
+    except Exception as err:
+        _LOGGER.error("解析预告信息时发生错误: %s", err)
+        self._forecast_info = "暂无预告信息"
+        self._is_adjustment_today = False
+
     def _extract_and_combine_forecast(self, text: str) -> None:
         """从预告文本中提取日期并组合完整预告信息."""
         adjustment_date = "近期"

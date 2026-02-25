@@ -35,10 +35,6 @@ FUEL_TYPE_OPTIONS = {
 
 class OilPriceOptionsFlow(config_entries.OptionsFlow):
     """处理国内油价集成的选项配置."""
-    
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        """初始化选项配置流程."""
-        self.config_entry = config_entry
 
     async def async_step_init(self, user_input: dict | None = None) -> FlowResult:
         """处理选项配置的初始步骤."""
