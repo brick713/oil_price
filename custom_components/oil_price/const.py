@@ -47,7 +47,6 @@ PROVINCE_LIST = [
 
 # 数据源URL（汽油价格网）
 DATA_SOURCE_URL = "http://www.qiyoujiage.com/"
-
 # 传感器属性键
 ATTR_GASOLINE_92 = "gasoline_92"
 ATTR_GASOLINE_95 = "gasoline_95"
