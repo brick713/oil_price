@@ -249,7 +249,9 @@ class OilPriceDataCoordinator:
         """解析HTML页面提取预告信息."""
         try:
             soup = BeautifulSoup(html, "html.parser")
+            _LOGGER.debug("soup内容 %s", soup)
             forecast_div = soup.find('div', style="border:solid 1px #EA5146; background-color:#F2F7FC; text-align:left; line-height:20px; clear:both; width:500px; margin:5px auto; padding:5px;")
+            _LOGGER.debug("找到预告div: %s", forecast_div)
             if forecast_div:
                 div_text = forecast_div.get_text(separator=" ", strip=True)
                 _LOGGER.debug("找到预告div，内容: %s", div_text)
@@ -268,36 +270,6 @@ class OilPriceDataCoordinator:
             _LOGGER.error("解析预告信息时发生错误: %s", err, exc_info=True)
             self._forecast_info = "解析预告信息时发生错误无预告信息"
 
-    def _extract_and_combine_forecast(self, text: str) -> None:
-        """从预告文本中提取日期并组合完整预告信息."""
-        adjustment_date = "近期"
-        direction = "调整"
-        amount = ""
-        # 提取日期
-        date_match = re.search(r'(\d{1,2}月\d{1,2}日\d{1,2}时)调整', text)
-        if date_match:
-            adjustment_date = date_match.group(1)
-            # 检查是否为今天
-            # 检查是否是今日调整
-            today = datetime.now().strftime("%m月%d日")
-            self._is_adjustment_today = today in adjustment_date
-        # 提取调整幅度
-        if "上涨" in text:
-            direction = "上涨"
-            amount_match = re.search(r'上涨([0-9.]+)元/升', text)
-            if amount_match:
-                amount = f"{amount_match.group(1)}元/升"
-        elif "下跌" in text:
-            direction = "下跌"
-            amount_match = re.search(r'下跌([0-9.]+)元/升', text)
-            if amount_match:
-                amount = f"{amount_match.group(1)}元/升"
-        # 组合完整预告信息
-        if amount:
-            self._forecast_info = f"{adjustment_date}{direction}{amount}"
-        else:
-            self._forecast_info = f"{adjustment_date}油价{direction}"
-        
     def _parse_prices(self, html: str) -> dict[str, float]:
         """解析HTML页面提取油价数据.
         
