@@ -516,7 +516,7 @@ class OilPriceForecastSensor(SensorEntity):
     @property
     def native_value(self) -> str:
         """返回预告信息."""
-        return self._coordinator.forecast_info or "暂无预告信息"
+        return self._coordinator.forecast_info or "未初始化预告信息"
     
     @property
     def available(self) -> bool:
