@@ -125,4 +125,4 @@ class OilPriceConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> config_entries.OptionsFlow:
         """获取选项配置流程."""
-        return OilPriceOptionsFlow(config_entry)
+        return OilPriceOptionsFlow()
