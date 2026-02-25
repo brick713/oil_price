@@ -270,30 +270,30 @@ class OilPriceDataCoordinator:
                             self._is_adjustment_today = True
                         else:
                             self._is_adjustment_today = False
-                _LOGGER.debug("预告信息解析结果: %s", self._forecast_info)
-                return
+                    _LOGGER.debug("预告信息解析结果: %s", self._forecast_info)
+                    return
                 else:
                     _LOGGER.warning("预告信息解析失败，未找到有效数据")
-        forecast_text = ""
-        adjustment_elements = soup.find_all(string=re.compile(r'.*调整.*'))
-        for element in adjustment_elements:
-            if isinstance(element, str):
-                text = element.strip()
+            forecast_text = ""
+            adjustment_elements = soup.find_all(string=re.compile(r'.*调整.*'))
+            for element in adjustment_elements:
+                if isinstance(element, str):
+                    text = element.strip()
+                else:
+                    text = str(element).strip()
+                if any(keyword in text for keyword in ["调整", "油价", "上涨", "下跌", "汽油", "柴油", "跌"]):
+                    forecast_text += text + " "
+                    break  # 只取第一个匹配的预告信息
+            if forecast_text:
+                _LOGGER.debug("找到预告文本，内容: %s", forecast_text)
+                self._extract_and_combine_forecast(forecast_text)
             else:
-                text = str(element).strip()
-            if any(keyword in text for keyword in ["调整", "油价", "上涨", "下跌", "汽油", "柴油", "跌"]):
-                forecast_text += text + " "
-                break  # 只取第一个匹配的预告信息
-        if forecast_text:
-            _LOGGER.debug("找到预告文本，内容: %s", forecast_text)
-            self._extract_and_combine_forecast(forecast_text)
-        else:
+                self._forecast_info = "暂无预告信息"
+                self._is_adjustment_today = False
+        except Exception as err:
+            _LOGGER.error("解析预告信息时发生错误: %s", err)
             self._forecast_info = "暂无预告信息"
             self._is_adjustment_today = False
-    except Exception as err:
-        _LOGGER.error("解析预告信息时发生错误: %s", err)
-        self._forecast_info = "暂无预告信息"
-        self._is_adjustment_today = False
 
     def _extract_and_combine_forecast(self, text: str) -> None:
         """从预告文本中提取日期并组合完整预告信息."""
