@@ -249,8 +249,9 @@ class OilPriceDataCoordinator:
         """解析HTML页面提取预告信息."""
         try:
             soup = BeautifulSoup(html, "html.parser")
+            _LOGGER.debug("html内容 %s", html)
             _LOGGER.debug("soup内容 %s", soup)
-            forecast_div = soup.find('div', style="border:solid 1px #EA5146; background-color:#F2F7FC; text-align:left; line-height:20px; clear:both; width:500px; margin:5px auto; padding:5px;")
+            forecast_div = soup.find('div', style="border: solid")
             _LOGGER.debug("找到预告div: %s", forecast_div)
             if forecast_div:
                 div_text = forecast_div.get_text(separator=" ", strip=True)
