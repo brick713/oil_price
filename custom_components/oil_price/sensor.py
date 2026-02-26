@@ -248,7 +248,7 @@ class OilPriceDataCoordinator:
     def _parse_forecast(self, html: str) -> None:
         """解析HTML页面提取预告信息."""
         try:
-            soup = BeautifulSoup(html, "lxml")
+            soup = BeautifulSoup(html, "html.parser")
             _LOGGER.debug("预告信息HTML片段: %s", soup)
             hint_section = soup.select_one("#youjiaCont > div:nth-of-type(2)")
             hint_text = hint_section.get_text(separator=" ", strip=True)
