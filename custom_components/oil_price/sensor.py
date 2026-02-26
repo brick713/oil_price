@@ -249,27 +249,23 @@ class OilPriceDataCoordinator:
         """解析HTML页面提取预告信息."""
         try:
             soup = BeautifulSoup(html, "html.parser")
-            _LOGGER.debug("html内容 %s", html)
-            _LOGGER.debug("soup内容 %s", soup)
-            forecast_div = soup.find('div', style="border: solid")
-            _LOGGER.debug("找到预告div: %s", forecast_div)
-            if forecast_div:
-                div_text = forecast_div.get_text(separator=" ", strip=True)
-                _LOGGER.debug("找到预告div，内容: %s", div_text)
-                full_pattern = r'油价(\d{1,2}月\d{1,2}日\d{1,2}时)调整\s*(上涨|下跌)([\d.]+元/升-[\d.]+元/升)\(汽柴油价格每吨(上调|下调)(\d+)元与(\d+)元\)，大家相互转告[^，]*'
-                fuul_match = re.search(full_pattern, div_text)
-                if fuul_match:
-                    adjustment_date = fuul_match.group(1)
-                    direction = fuul_match.group(2)
-                    amount = fuul_match.group(3)
-                    self._forecast_info = f"{adjustment_date}油价{direction}{amount}"
-                    _LOGGER.debug("提取到完整预告信息: %s", self._forecast_info)
-                    return
-            self._forecast_info = "暂无预告信息"
-            _LOGGER.debug("匹配出现问题未找到完整预告信息")
+            hint_section = soup.select_one("#youjiaCont > div:nth-of-type(2)")
+            hint_text = hint_section.get_text(separator=" ", strip=True)
+            _LOGGER.debug("提取到的预告文本: %s", hint_text)
+            time_match = re.search(r'油价\s*(\d{1,2}月\d{1,2}日\d{1,2}时)\s*调整', hint_text)
+            adjustment_date = time_match.group(1) if time_match else "未知时间"
+            price_match = re.search(r'(上涨|下跌)\s*([\d.]+元/升\s*[-~]\s*[\d.]+元/升)', hint_text)
+            direction = price_match.group(1) if price_match else "未知价格趋势"
+            amount = price_match.group(2)
+            amount = re.sub(r'\s+', '', amount)
+            amount = re.sub(r'[-~]', '-', amount)
+            self._forecast_info = f"{adjustment_date}油价{direction}{amount}"
+            _LOGGER.debug("解析后的预告信息: %s", self._forecast_info)
+        
         except Exception as err:
             _LOGGER.error("解析预告信息时发生错误: %s", err, exc_info=True)
-            self._forecast_info = "解析预告信息时发生错误无预告信息"
+            self._forecast_info = "预告信息解析失败"
+
 
     def _parse_prices(self, html: str) -> dict[str, float]:
         """解析HTML页面提取油价数据.
