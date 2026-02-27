@@ -362,7 +362,7 @@ class FullTankCostSensor(SensorEntity):
     """加满油费用传感器."""
     
     _attr_has_entity_name = True
-    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_state_class = SensorStateClass.TOTAL
     _attr_device_class = SensorDeviceClass.MONETARY
     _attr_native_unit_of_measurement = "元"
     _attr_icon = "mdi:currency-cny"
