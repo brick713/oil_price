@@ -245,38 +245,28 @@ class OilPriceDataCoordinator:
         except Exception as err:
             _LOGGER.error("HTTP请求错误（预告信息）: %s", err)
 
-    def _parse_forecast(self, html: str) -> None:
+    def _parse_forecast(self, text: str) -> None:
             """解析预告信息."""
             try:
-                soup = BeautifulSoup(html, "html.parser")
-                hint_text = ""
-                for text_node in soup.find_all(string=True):
-                    text_content = str(text_node).strip()
-                    if '油价' in text_content and '调整' in text_content:
-                        hint_text = text_content
+                soup = BeautifulSoup(text, "html.parser")
+
+                for div in soup.find_all('div'):
+                    div_text = div.get_text(strip=True)
+                    if '油价' in div_text and '调整' in div_text and ('上涨' in div_text or '下跌' in div_text):
+                        hint_text = div_text
                         break
-                if not hint_text:
+                else:
                     self._forecast_info = "暂无预告信息"
                     return
-
-                _LOGGER.debug("找到预告文本: %s", hint_text)
-
                 time_match = re.search(r'油价\s*(\d{1,2}月\d{1,2}日\d{1,2}时)\s*调整', hint_text)
-                if not time_match:
-                    self._forecast_info = "暂无预告信息"
-                    return
-
-                adjustment_date = time_match.group(1)
                 price_match = re.search(r'(上涨|下跌)([\d.]+元/升-[\d.]+元/升)', hint_text)
-                if not price_match:
+                if time_match and price_match:
+                    date = time_match.group(1)
+                    direction = price_match.group(1)
+                    amount = price_match.group(2)
+                    self._forecast_info = f"{date}{direction}{amount}"
+                else:
                     self._forecast_info = "暂无预告信息"
-                    return
-                direction = price_match.group(1)
-                amount = price_match.group(2)
-                amount = re.sub(r'\s+', '', amount)
-                self._forecast_info = f"{adjustment_date}{direction}{amount}"
-                _LOGGER.debug("成功提取预告信息: %s", self._forecast_info)
-                
             except Exception as err:
                 _LOGGER.error("解析预告信息时发生错误: %s", err)
                 self._forecast_info = "解析预告信息失败"
