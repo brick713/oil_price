@@ -22,11 +22,9 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .const import (
     DOMAIN,
     CONF_PROVINCE,
-    CONF_SCAN_INTERVAL,
     CONF_CAR_MODEL,
     CONF_TANK_SIZE,
     CONF_FUEL_TYPE,
-    DEFAULT_SCAN_INTERVAL,
     DEFAULT_TANK_SIZE,
     DEFAULT_FUEL_TYPE,
     OIL_TYPES,
@@ -34,7 +32,6 @@ from .const import (
     ATTR_UPDATE_TIME,
     ATTR_PROVINCE,
     ATTR_NEXT_ADJUSTMENT,
-    ATTR_IS_ADJUSTMENT_TODAY,
     CONF_ENABLE_FORECAST, 
     DEFAULT_ENABLE_FORECAST,
 )
@@ -43,37 +40,14 @@ _LOGGER = logging.getLogger(__name__)
 
 # 省份名称到URL路径的拼音映射
 PROVINCE_PINYIN_MAP = {
-    "北京": "beijing",
-    "上海": "shanghai",
-    "天津": "tianjin",
-    "重庆": "chongqing",
-    "河北": "hebei",
-    "山西": "shanxi",
-    "辽宁": "liaoning",
-    "吉林": "jilin",
-    "黑龙江": "heilongjiang",
-    "江苏": "jiangsu",
-    "浙江": "zhejiang",
-    "安徽": "anhui",
-    "福建": "fujian",
-    "江西": "jiangxi",
-    "山东": "shandong",
-    "河南": "henan",
-    "湖北": "hubei",
-    "湖南": "hunan",
-    "广东": "guangdong",
-    "海南": "hainan",
-    "四川": "sichuan",
-    "贵州": "guizhou",
-    "云南": "yunnan",
-    "陕西": "shanxi-3",  # 陕西使用 shanxi-3 以区分山西
-    "甘肃": "gansu",
-    "青海": "qinghai",
-    "内蒙古": "neimenggu",
-    "广西": "guangxi",
-    "西藏": "xizang",
-    "宁夏": "ningxia",
-    "新疆": "xinjiang",
+    "北京": "beijing", "上海": "shanghai", "天津": "tianjin", "重庆": "chongqing",
+    "河北": "hebei", "山西": "shanxi", "辽宁": "liaoning", "吉林": "jilin", 
+    "黑龙江": "heilongjiang", "江苏": "jiangsu", "浙江": "zhejiang", "安徽": "anhui",
+    "福建": "fujian", "江西": "jiangxi", "山东": "shandong", "河南": "henan",
+    "湖北": "hubei", "湖南": "hunan", "广东": "guangdong", "海南": "hainan",
+    "四川": "sichuan", "贵州": "guizhou", "云南": "yunnan", "陕西": "shanxi-3",
+    "甘肃": "gansu", "青海": "qinghai", "内蒙古": "neimenggu", "广西": "guangxi",
+    "西藏": "xizang", "宁夏": "ningxia", "新疆": "xinjiang",
 }
 
 # 油品类型键到价格标识的映射
@@ -90,21 +64,14 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """设置国内油价传感器.
-    
-    为所选省份创建传感器：
-    - 4个油价传感器（92#、95#、98#汽油和0#柴油）
-    - 1个加满油费用传感器（如果配置了车型和油箱容量）
-    """
+    """设置国内油价传感器."""
     province = entry.data.get(CONF_PROVINCE)
     car_model = entry.data.get(CONF_CAR_MODEL, "")
     tank_size = entry.data.get(CONF_TANK_SIZE, DEFAULT_TANK_SIZE)
     fuel_type = entry.data.get(CONF_FUEL_TYPE, DEFAULT_FUEL_TYPE)
     enable_forecast = entry.data.get(CONF_ENABLE_FORECAST, DEFAULT_ENABLE_FORECAST)
 
-    # 创建数据协调器（用于共享数据获取，避免重复请求）
     coordinator = OilPriceDataCoordinator(hass, province, enable_forecast)
-
     sensors = []
     
     # 创建油价传感器实体
@@ -130,7 +97,8 @@ async def async_setup_entry(
             entry_id=entry.entry_id,
         )
     )
-    # 创建预告信息传感器（如果启用预告功能）
+    
+    # 创建预告信息传感器
     if enable_forecast:
         sensors.append(
             OilPriceForecastSensor(
@@ -139,36 +107,27 @@ async def async_setup_entry(
                 entry_id=entry.entry_id,
             )
         )
+    
     async_add_entities(sensors, True)
 
 
 class OilPriceDataCoordinator:
-    """油价数据协调器.
+    """油价数据协调器."""
     
-    负责从数据源获取油价数据，多个传感器共享同一个协调器实例，
-    避免重复发送HTTP请求。
-    """
-
     def __init__(self, hass: HomeAssistant, province: str, enable_forecast: bool = True) -> None:
         """初始化协调器."""
         self._hass = hass
         self._province = province
-        self._enable_forecast = enable_forecast # 预告信息开关
+        self._enable_forecast = enable_forecast
         self._prices: dict[str, float] = {}
         self._update_time: str | None = None
         self._last_fetch_success = False
         self._forecast_info: str | None = None
-        self._is_adjustment_today: bool = False
 
     @property
     def forecast_info(self) -> str | None:
         """返回预告信息."""
         return self._forecast_info
-
-    @property
-    def is_adjustment_today(self) -> bool:
-        """返回是否为调价日."""
-        return self._is_adjustment_today
 
     @property
     def prices(self) -> dict[str, float]:
@@ -190,24 +149,17 @@ class OilPriceDataCoordinator:
         session = async_get_clientsession(self._hass)
         
         try:
-            # 构建请求URL
+            # 获取省份油价
             province_pinyin = PROVINCE_PINYIN_MAP.get(self._province, "beijing")
             url = f"{DATA_SOURCE_URL}{province_pinyin}.shtml"
             
-            # 设置请求头，模拟浏览器访问
             headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
             }
             
-            async with session.get(
-                url, 
-                timeout=aiohttp.ClientTimeout(total=30),
-                headers=headers
-            ) as response:
+            async with session.get(url, timeout=30, headers=headers) as response:
                 if response.status != 200:
-                    _LOGGER.warning("获取油价数据失败，HTTP状态码: %s", response.status)
+                    _LOGGER.warning("获取油价数据失败，状态码: %s", response.status)
                     self._last_fetch_success = False
                     return
                 
@@ -219,8 +171,10 @@ class OilPriceDataCoordinator:
                     self._last_fetch_success = True
                     _LOGGER.debug("成功获取 %s 油价: %s", self._province, self._prices)
                 else:
-                    _LOGGER.warning("解析油价数据失败，未找到有效数据")
+                    _LOGGER.warning("解析油价数据失败")
                     self._last_fetch_success = False
+            
+            # 获取预告信息
             if self._enable_forecast:
                 await self._update_forecast_info(session)
                     
@@ -228,78 +182,102 @@ class OilPriceDataCoordinator:
             _LOGGER.error("HTTP请求错误: %s", err)
             self._last_fetch_success = False
         except Exception as err:
-            _LOGGER.error("获取油价时发生意外错误: %s", err)
+            _LOGGER.error("获取油价时发生错误: %s", err)
             self._last_fetch_success = False
 
     async def _update_forecast_info(self, session: aiohttp.ClientSession) -> None:
         """更新预告信息."""
         try:
-            # 获取预告信息的URL
-            async with session.get(DATA_SOURCE_URL, timeout=aiohttp.ClientTimeout(total=30)) as response:
+            async with session.get(DATA_SOURCE_URL, timeout=30) as response:
                 if response.status != 200:
-                    _LOGGER.warning("获取预告信息失败，HTTP状态码: %s", response.status)
+                    _LOGGER.warning("获取预告信息失败，状态码: %s", response.status)
                     return
                 
                 html = await response.text()
                 self._parse_forecast(html)
         except Exception as err:
-            _LOGGER.error("HTTP请求错误（预告信息）: %s", err)
+            _LOGGER.warning("获取预告信息失败: %s", err)
 
     def _parse_forecast(self, text: str) -> None:
-            """解析预告信息."""
-            try:
-                soup = BeautifulSoup(text, "html.parser")
-
-                for div in soup.find_all('div'):
-                    div_text = div.get_text(strip=True)
-                    if '油价' in div_text and '调整' in div_text and ('上涨' in div_text or '下跌' in div_text):
-                        hint_text = div_text
-                        break
-                else:
-                    self._forecast_info = "暂无预告信息"
-                    return
-                time_match = re.search(r'油价\s*(\d{1,2}月\d{1,2}日\d{1,2}时)\s*调整', hint_text)
-                price_match = re.search(r'(上涨|下跌)([\d.]+元/升-[\d.]+元/升)', hint_text)
-                if time_match and price_match:
-                    date = time_match.group(1)
-                    direction = price_match.group(1)
-                    amount = price_match.group(2)
-                    self._forecast_info = f"{date}{direction}{amount}"
-                else:
-                    self._forecast_info = "暂无预告信息"
-            except Exception as err:
-                _LOGGER.error("解析预告信息时发生错误: %s", err)
-                self._forecast_info = "解析预告信息失败"
-
+        """解析预告信息."""
+        try:
+            soup = BeautifulSoup(text, "html.parser")
+            
+            # 查找包含预告信息的div
+            for div in soup.find_all('div'):
+                div_text = div.get_text(strip=True)
+                if '油价' in div_text and '调整' in div_text and ('上涨' in div_text or '下跌' in div_text):
+                    hint_text = div_text
+                    break
+            else:
+                self._forecast_info = "暂无预告信息"
+                return
+            
+            # 提取日期和时间
+            time_match = re.search(r'油价\s*(\d{1,2}月\d{1,2}日)(\d{1,2})时\s*调整', hint_text)
+            if not time_match:
+                time_match = re.search(r'油价\s*(\d{1,2}月\d{1,2}日)(\d{1,2})时', hint_text)
+            
+            if not time_match:
+                self._forecast_info = "暂无预告信息"
+                return
+            
+            # 处理24时转换为下一天
+            date_str = time_match.group(1)  # 例如: 2月24日
+            hour = int(time_match.group(2))  # 例如: 24
+            
+            if hour == 24:
+                # 简单日期转换：日期+1天
+                date_match = re.match(r'(\d{1,2})月(\d{1,2})日', date_str)
+                if date_match:
+                    month = int(date_match.group(1))
+                    day = int(date_match.group(2))
+                    day += 1
+                    
+                    # 简单月份边界处理
+                    month_days = {1:31, 2:28, 3:31, 4:30, 5:31, 6:30,
+                                  7:31, 8:31, 9:30, 10:31, 11:30, 12:31}
+                    
+                    if day > month_days.get(month, 31):
+                        day = 1
+                        month += 1
+                        if month > 12:
+                            month = 1
+                    
+                    date_str = f"{month}月{day}日"
+            
+            # 提取价格调整信息
+            price_match = re.search(r'(上涨|下跌)([\d.]+元/升-[\d.]+元/升)', hint_text)
+            if not price_match:
+                self._forecast_info = "暂无预告信息"
+                return
+            
+            direction = price_match.group(1)
+            amount = price_match.group(2)
+            amount = re.sub(r'\s+', '', amount)
+            
+            # 构建预告信息
+            self._forecast_info = f"{date_str}{direction}{amount}"
+            
+        except Exception as err:
+            _LOGGER.error("解析预告信息时发生错误: %s", err)
+            self._forecast_info = "解析预告信息失败"
 
     def _parse_prices(self, html: str) -> dict[str, float]:
-        """解析HTML页面提取油价数据.
-        
-        网站使用如下HTML结构存储油价:
-        <div id="youjia">
-            <dl>
-                <dt>北京92#汽油</dt>
-                <dd>6.77</dd>
-            </dl>
-            ...
-        </div>
-        """
+        """解析HTML页面提取油价数据."""
         prices = {}
         
         try:
             soup = BeautifulSoup(html, "html.parser")
-            
-            # 查找油价容器
             youjia_div = soup.find("div", id="youjia")
             
             if not youjia_div:
-                _LOGGER.warning("未找到油价数据容器 (#youjia)")
+                _LOGGER.warning("未找到油价数据容器")
                 return prices
             
-            # 遍历所有油品条目
             for dl in youjia_div.find_all("dl"):
-                dt = dl.find("dt")  # 油品名称
-                dd = dl.find("dd")  # 油品价格
+                dt = dl.find("dt")
+                dd = dl.find("dd")
                 
                 if not (dt and dd):
                     continue
@@ -310,7 +288,6 @@ class OilPriceDataCoordinator:
                 try:
                     price = float(price_text)
                     
-                    # 根据油品名称识别类型
                     if "92#" in oil_name or "92号" in oil_name:
                         prices["92#"] = price
                     elif "95#" in oil_name or "95号" in oil_name:
@@ -321,21 +298,17 @@ class OilPriceDataCoordinator:
                         prices["0#"] = price
                         
                 except ValueError:
-                    _LOGGER.debug("无法解析价格: %s", price_text)
                     continue
                     
         except Exception as err:
-            _LOGGER.error("解析HTML时发生错误: %s", err)
+            _LOGGER.error("解析油价时发生错误: %s", err)
         
         return prices
 
 
 class OilPriceSensor(SensorEntity):
-    """油价传感器实体.
+    """油价传感器实体."""
     
-    每个传感器代表一种油品（92#汽油、95#汽油、98#汽油或0#柴油）的价格。
-    """
-
     _attr_has_entity_name = True
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = "元/升"
@@ -356,7 +329,6 @@ class OilPriceSensor(SensorEntity):
         self._oil_type_name = oil_type_name
         self._entry_id = entry_id
 
-        # 设置实体属性
         self._attr_unique_id = f"{DOMAIN}_{province}_{oil_type_key}"
         self._attr_name = f"{province}{oil_type_name}"
 
@@ -387,11 +359,8 @@ class OilPriceSensor(SensorEntity):
 
 
 class FullTankCostSensor(SensorEntity):
-    """加满油费用传感器.
+    """加满油费用传感器."""
     
-    根据配置的车型、油箱容量和油品类型，计算加满一箱油的预计费用。
-    """
-
     _attr_has_entity_name = True
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_device_class = SensorDeviceClass.MONETARY
@@ -407,27 +376,15 @@ class FullTankCostSensor(SensorEntity):
         fuel_type: str,
         entry_id: str,
     ) -> None:
-        """初始化加满油费用传感器.
-        
-        参数:
-            coordinator: 数据协调器
-            province: 省份名称
-            car_model: 车型名称（如 奔驰GLC300L）
-            tank_size: 油箱容量（升）
-            fuel_type: 油品类型（如 gasoline_95）
-            entry_id: 配置条目ID
-        """
+        """初始化加满油费用传感器."""
         self._coordinator = coordinator
         self._province = province
         self._car_model = car_model or "我的车"
         self._tank_size = tank_size
         self._fuel_type = fuel_type
         self._entry_id = entry_id
-
-        # 获取油品显示名称
         self._fuel_type_name = OIL_TYPES.get(fuel_type, "92号汽油")
         
-        # 设置实体属性
         self._attr_unique_id = f"{DOMAIN}_{province}_full_tank_cost_{entry_id}"
         self._attr_name = f"{self._car_model}加满油费用"
 
@@ -440,7 +397,6 @@ class FullTankCostSensor(SensorEntity):
         if price is None:
             return None
         
-        # 计算费用并保留2位小数
         return round(price * self._tank_size, 2)
 
     @property
@@ -468,12 +424,10 @@ class FullTankCostSensor(SensorEntity):
         """异步更新传感器状态."""
         await self._coordinator.async_update()
 
-class OilPriceForecastSensor(SensorEntity):
-    """油价预告信息传感器.
-    
-    显示即将到来的油价调整预告信息。
-    """
 
+class OilPriceForecastSensor(SensorEntity):
+    """油价预告信息传感器."""
+    
     _attr_has_entity_name = True
     _attr_icon = "mdi:calendar-clock"
 
@@ -483,14 +437,13 @@ class OilPriceForecastSensor(SensorEntity):
         self._province = province
         self._entry_id = entry_id
 
-        # 设置实体属性
         self._attr_unique_id = f"{DOMAIN}_{province}_forecast"
         self._attr_name = f"{province}油价预告信息"
     
     @property
     def native_value(self) -> str:
         """返回预告信息."""
-        return self._coordinator.forecast_info or "未初始化预告信息"
+        return self._coordinator.forecast_info or "暂无预告信息"
     
     @property
     def available(self) -> bool:
@@ -504,8 +457,8 @@ class OilPriceForecastSensor(SensorEntity):
             ATTR_PROVINCE: self._province,
             ATTR_UPDATE_TIME: self._coordinator.update_time,
             ATTR_NEXT_ADJUSTMENT: self._coordinator.forecast_info,
-            ATTR_IS_ADJUSTMENT_TODAY: self._coordinator.is_adjustment_today,
         }
+    
     async def async_update(self) -> None:
         """异步更新传感器状态."""
         await self._coordinator.async_update()
