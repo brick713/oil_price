@@ -246,46 +246,40 @@ class OilPriceDataCoordinator:
             _LOGGER.error("HTTP请求错误（预告信息）: %s", err)
 
     def _parse_forecast(self, html: str) -> None:
-        """解析HTML页面提取预告信息."""
-        try:
-            soup = BeautifulSoup(html, "html.parser")
-            left_div = soup.find('div', id='left')
-            hint_section = None
-            if left_div:
-                bordered_divs = left_div.find_all('div', style=re.compile(r'border.*solid.*1px.*#'))
-                for div in bordered_divs:
-                    div_text = div.get_text(separator=' ', strip=True)
-                    if '油价' in div_text and '调整' in div_text:
-                        hint_section = div
-                        _LOGGER.debug("找到左侧预告div")
-                        break 
-            if not hint_section:
-                right_top_div = soup.find('div', id='rightTop')
-                if right_top_div:
-                    for div in right_top_div.find_all('div'):
-                        div_text = div.get_text(separator=' ', strip=True)
-                        if '油价' in div_text and '调整' in div_text:
-                            hint_section = div
-                            _LOGGER.debug("找到右侧预告div")
-                            break
-            else:
-                _LOGGER.warning("未找到预告信息的div容器")
-                self._forecast_info = "未找到预告信息"
-                return
-            hint_text = hint_section.get_text(separator=' ', strip=True)
-            _LOGGER.debug("预告信息原始文本: %s", hint_text)
-            time_match = re.search(r'油价\s*(\d{1,2}月\d{1,2}日\d{1,2}时)\s*调整', hint_text)
-            adjustment_date = time_match.group(1) if time_match else "未知时间"
-            price_match = re.search(r'(上涨|下跌)\s*([\d.]+元/升\s*[-~]\s*[\d.]+元/升)', hint_text)
-            direction = price_match.group(1) if price_match else "未知调整"
-            amount = price_match.group(2) if price_match else "未知金额"
-            amount = re.sub(r'\s+', '', amount)
-            amount = re.sub(r'[-~]', '-', amount)
-            self._forecast_info = f"{adjustment_date}油价{direction}{amount}"
-            _LOGGER.debug("解析后的预告信息: %s", self._forecast_info)
-        except Exception as err:
-            _LOGGER.error("解析预告信息时发生错误: %s", err, exc_info=True)
-            self._forecast_info = "预告信息解析失败"
+            """解析预告信息."""
+            try:
+                soup = BeautifulSoup(html, "html.parser")
+                hint_text = ""
+                for text_node in soup.find_all(string=True):
+                    text_content = str(text_node).strip()
+                    if '油价' in text_content and '调整' in text_content:
+                        hint_text = text_content
+                        break
+                if not hint_text:
+                    self._forecast_info = "暂无预告信息"
+                    return
+
+                _LOGGER.debug("找到预告文本: %s", hint_text)
+
+                time_match = re.search(r'油价\s*(\d{1,2}月\d{1,2}日\d{1,2}时)\s*调整', hint_text)
+                if not time_match:
+                    self._forecast_info = "暂无预告信息"
+                    return
+
+                adjustment_date = time_match.group(1)
+                price_match = re.search(r'(上涨|下跌)([\d.]+元/升-[\d.]+元/升)', hint_text)
+                if not price_match:
+                    self._forecast_info = "暂无预告信息"
+                    return
+                direction = price_match.group(1)
+                amount = price_match.group(2)
+                amount = re.sub(r'\s+', '', amount)
+                self._forecast_info = f"{adjustment_date}{direction}{amount}"
+                _LOGGER.debug("成功提取预告信息: %s", self._forecast_info)
+                
+            except Exception as err:
+                _LOGGER.error("解析预告信息时发生错误: %s", err)
+                self._forecast_info = "解析预告信息失败"
 
 
     def _parse_prices(self, html: str) -> dict[str, float]:
