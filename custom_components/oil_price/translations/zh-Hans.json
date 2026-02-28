@@ -29,7 +29,8 @@
                     "car_model": "车型名称",
                     "tank_size": "油箱容量（升）",
                     "fuel_type": "常用油品类型",
-                    "scan_interval": "更新间隔（秒）"
+                    "scan_interval": "更新间隔（秒）",
+                    "enable_forecast": "启用油价预测"
                 }
             }
         }

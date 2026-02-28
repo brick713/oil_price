@@ -29,7 +29,8 @@
                     "car_model": "Car Model",
                     "tank_size": "Tank Size (liters)",
                     "fuel_type": "Fuel Type",
-                    "scan_interval": "Update interval (seconds)"
+                    "scan_interval": "Update interval (seconds)",
+                    "enable_forecast": "Enable oil price forecast"
                 }
             }
         }
