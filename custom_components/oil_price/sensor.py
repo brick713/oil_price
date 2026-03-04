@@ -165,7 +165,7 @@ class OilPriceDataCoordinator:
             
             for div in soup.find_all('div'):
                 div_text = div.get_text(strip=True)
-                if '油价' in div_text and '调整' in div_text and ('上涨' in div_text or '下跌' in div_text):
+                if '油价' in div_text and '调整' in div_text and ('预计' in div_text):
                     hint_text = div_text
                     break
             else:
