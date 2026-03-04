@@ -162,18 +162,19 @@ class OilPriceDataCoordinator:
     def _parse_forecast(self, text: str) -> None:
         try:
             soup = BeautifulSoup(text, "html.parser")
-            hint_text = str()
+            hint_text_parts = []
             for text_node in soup.find_all(text=True):
                 textinfo = text_node.strip()
                 _LOGGER.debug("检查文本节点: %s", textinfo)
                 time_match = re.search(r'油价\s*(\d{1,2}月\d{1,2}日)\s*(\d{1,2})\s*时\s*调整', textinfo)
                 if not time_match:
-                    hint_text.append(textinfo)
+                    hint_text_parts.append(textinfo)
                 if '预计上调' in textinfo:
-                    hint_text.append(textinfo)
+                    hint_text_parts.append(textinfo)
             else:
                 _LOGGER.debug("未找到包含预告信息的文本")
                 return
+            hint_text = ' '.join(hint_text_parts)
             _LOGGER.debug("找到预告信息文本: %s", hint_text)
             time_match = re.search(r'油价\s*(\d{1,2}月\d{1,2}日)\s*(\d{1,2})\s*时\s*调整', hint_text)
             if not time_match:
