@@ -163,10 +163,10 @@ class OilPriceDataCoordinator:
         try:
             soup = BeautifulSoup(text, "html.parser")
             
-            for div in soup.find_all(text=True, recursive=True):
-                div_text = div.get_text(strip=True)
-                if '油价' in div_text and '调整' in div_text and '预计' in div_text:
-                    hint_text = div_text
+            for text_node in soup.find_all(text=True):
+                textinfo = str(text_node).strip()
+                if '油价' in textinfo and '调整' in textinfo and '预计' in textinfo:
+                    hint_text = textinfo
                     break
             else:
                 _LOGGER.debug("未找到包含预告信息的文本")
