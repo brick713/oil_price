@@ -200,7 +200,7 @@ class OilPriceDataCoordinator:
                     
                     date_str = f"{month}月{day}日"
             
-            price_match = re.search(r'(上涨|下跌)([\d.]+元/升-[\d.]+元/升)', hint_text)
+            price_match = re.search(r'(上调|上涨|下跌)([\d.]+元/升-[\d.]+元/升)', hint_text)
             if not price_match:
                 self._forecast_info = "暂无预告信息"
                 return
