@@ -170,7 +170,7 @@ class OilPriceDataCoordinator:
                     break
             _LOGGER.debug("找到预告信息文本: %s", hint_text)
             else:
-                _LOGGER.debug("网页解析错误信息文本")
+                _LOGGER.debug("未找到包含预告信息的文本")
                 return
             
             time_match = re.search(r'油价\s*(\d{1,2}月\d{1,2}日)\s*(\d{1,2})\s*时\s*调整', hint_text)
