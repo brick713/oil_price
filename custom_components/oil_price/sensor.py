@@ -162,7 +162,7 @@ class OilPriceDataCoordinator:
     def _parse_forecast(self, text: str) -> None:
         try:
             soup = BeautifulSoup(text, "html.parser")
-            
+            hint_text = str()
             for text_node in soup.find_all(text=True):
                 textinfo = text_node.strip()
                 _LOGGER.debug("检查文本节点: %s", textinfo)
