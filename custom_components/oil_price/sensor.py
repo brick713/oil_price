@@ -166,6 +166,7 @@ class OilPriceDataCoordinator:
             for text_node in soup.find_all(text=True):
                 textinfo = text_node.strip()
                 if re.search(r'\s*(\d{1,2}月\d{1,2}日)\s*(\d{1,2})\s*时\s*调整', textinfo):
+                    LOGGER.debug("找到预告信息文本: %s", textinfo)
                     hint_text_parts.append(textinfo)
                 if '预计上调' in textinfo:
                     hint_text_parts.append(textinfo)
@@ -194,10 +195,7 @@ class OilPriceDataCoordinator:
                             month = 1
                     
                     date_str = f"{month}月{day}日"
-            _LOGGER.debug("原始文本: %s", hint_text)
             price_match = re.search(r'(上调|上涨|下跌).*?([\d.]+元/升-[\d.]+元/升)', hint_text)
-            _LOGGER.debug("预告信息原始文本: %s", price_match.group(1))
-            _LOGGER.debug("预告信息原始文本: %s", price_match.group(2))
             if not price_match:
                 _LOGGER.debug("解析错误时间信息")
                 return
@@ -206,7 +204,7 @@ class OilPriceDataCoordinator:
             amount = price_match.group(2)
             amount = re.sub(r'\s+', '', amount)
             
-            self._forecast_info = f"{date_str}{direction}{amount}"
+            self._forecast_info = f"油价{date_str}{direction}{amount}"
             
         except Exception as err:
             _LOGGER.error("解析预告信息时发生错误: %s", err)
