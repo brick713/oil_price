@@ -194,8 +194,8 @@ class OilPriceDataCoordinator:
                             month = 1
                     
                     date_str = f"{month}月{day}日"
-            
-            price_match = re.search(r'(上调|上涨|下跌)([\d.]+元/升-[\d.]+元/升)', hint_text)
+            _LOGGER.debug("原始文本: %s", hint_text)
+            price_match = re.search(r'(上调|上涨|下跌).*?([\d.]+元/升-[\d.]+元/升)', hint_text)
             _LOGGER.debug("预告信息原始文本: %s", price_match.group(1))
             _LOGGER.debug("预告信息原始文本: %s", price_match.group(2))
             if not price_match:
