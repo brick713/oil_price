@@ -163,13 +163,13 @@ class OilPriceDataCoordinator:
         try:
             soup = BeautifulSoup(text, "html.parser")
             hint_text_parts = []
+            _LOGGER.debug("解析信息: %s", soup.find_all(text=True))
             for text_node in soup.find_all(text=True):
                 textinfo = text_node.strip()
-                if re.search(r'\s*(\d{1,2}月\d{1,2}日)\s*(\d{1,2})\s*时\s*调整', textinfo):
-                    LOGGER.debug("找到预告信息文本: %s", textinfo)
+                if re.search(r'\s*(\d{1,2}月\d{1,2}日)\s*(\d{1,2})\s*时\s*调整', textinfo) and '预计上调' in textinfo:
                     hint_text_parts.append(textinfo)
-                if '预计上调' in textinfo:
-                    hint_text_parts.append(textinfo)
+                #if '预计上调' in textinfo:
+                    #hint_text_parts.append(textinfo)
             hint_text = ' '.join(hint_text_parts)
             time_match = re.search(r'油价\s*(\d{1,2}月\d{1,2}日)\s*(\d{1,2})\s*时\s*调整', hint_text)
             if not time_match:
