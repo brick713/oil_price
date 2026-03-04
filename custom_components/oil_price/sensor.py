@@ -168,11 +168,10 @@ class OilPriceDataCoordinator:
                 if '油价' in div_text and '调整' in div_text:
                     hint_text = div_text
                     break
-            _LOGGER.debug("找到预告信息文本: %s", hint_text)
             else:
                 _LOGGER.debug("未找到包含预告信息的文本")
                 return
-            
+            _LOGGER.debug("找到预告信息文本: %s", hint_text)
             time_match = re.search(r'油价\s*(\d{1,2}月\d{1,2}日)\s*(\d{1,2})\s*时\s*调整', hint_text)
             if not time_match:
                 time_match = re.search(r'油价\s*(\d{1,2}月\d{1,2}日)\s*(\d{1,2})\s*时', hint_text)
