@@ -166,9 +166,11 @@ class OilPriceDataCoordinator:
             for text_node in soup.find_all(text=True):
                 textinfo = text_node.strip()
                 _LOGGER.debug("检查文本节点: %s", textinfo)
-                if '油价' in textinfo and '调整' in textinfo and '预计' in textinfo:
-                    hint_text = textinfo
-                    break
+                time_match = re.search(r'油价\s*(\d{1,2}月\d{1,2}日)\s*(\d{1,2})\s*时\s*调整', textinfo)
+                if not time_match:
+                    hint_text.append(textinfo)
+                if '预计上调' in textinfo:
+                    hint_text.append(textinfo)
             else:
                 _LOGGER.debug("未找到包含预告信息的文本")
                 return
