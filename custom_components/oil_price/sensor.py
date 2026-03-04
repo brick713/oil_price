@@ -165,7 +165,7 @@ class OilPriceDataCoordinator:
             
             for div in soup.find_all(text=True, recursive=True):
                 div_text = div.get_text(strip=True)
-                if '油价' in div_text and '调整' in div_text:
+                if '油价' in div_text and '调整' in div_text and '预计' in div_text:
                     hint_text = div_text
                     break
             else:
@@ -175,7 +175,7 @@ class OilPriceDataCoordinator:
             time_match = re.search(r'油价\s*(\d{1,2}月\d{1,2}日)\s*(\d{1,2})\s*时\s*调整', hint_text)
             if not time_match:
                 time_match = re.search(r'油价\s*(\d{1,2}月\d{1,2}日)\s*(\d{1,2})\s*时', hint_text)
-            _LOGGER.debug("解析错误时间信息")
+            _LOGGER.debug("解析错误时间信息: %s", time_match)
             if not time_match:
                 _LOGGER.debug("未找到时间信息")
                 return
