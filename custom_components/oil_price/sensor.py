@@ -166,16 +166,13 @@ class OilPriceDataCoordinator:
             for text_node in soup.find_all(text=True):
                 textinfo = text_node.strip()
                 if re.search(r'\s*(\d{1,2}月\d{1,2}日)\s*(\d{1,2})\s*时\s*调整', textinfo):
-                    _LOGGER.debug("找到包含时间信息的文本: %s", textinfo)
                     hint_text_parts.append(textinfo)
                 if '预计上调' in textinfo:
-                    _LOGGER.debug("找到包含预告信息的文本: %s", textinfo)
                     hint_text_parts.append(textinfo)
             hint_text = ' '.join(hint_text_parts)
             time_match = re.search(r'油价\s*(\d{1,2}月\d{1,2}日)\s*(\d{1,2})\s*时\s*调整', hint_text)
-            if not time_match:
-                time_match = re.search(r'油价\s*(\d{1,2}月\d{1,2}日)\s*(\d{1,2})\s*时', hint_text)
-            _LOGGER.debug("解析错误时间信息: %s", time_match)
+            _LOGGER.debug("解析错误时间信息: %s", time_match.group(1))
+            _LOGGER.debug("解析错误时间信息: %s", time_match.group(2))
             if not time_match:
                 _LOGGER.debug("未找到时间信息")
                 return
