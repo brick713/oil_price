@@ -160,29 +160,49 @@ class OilPriceDataCoordinator:
             _LOGGER.warning("获取预告信息失败: %s", err)
 
     def _parse_forecast(self, text: str) -> None:
+        """解析预告信息."""
         try:
             soup = BeautifulSoup(text, "html.parser")
             
-            for div in soup.find_all('div'):
-                div_text = div.get_text(strip=True)
-                if '油价' in div_text and '调整' in div_text and ('预计' in div_text):
-                    hint_text = div_text
+            # 方法1：查找包含"下次油价"的文本
+            forecast_text = None
+            
+            # 尝试查找包含预告信息的所有文本
+            for element in soup.find_all(text=True):
+                element_text = element.strip()
+                if '下次油价' in element_text and '调整' in element_text:
+                    forecast_text = element_text
                     break
-            else:
+            
+            # 方法2：如果方法1失败，尝试查找包含"预计上调"或"预计下调"的文本
+            if not forecast_text:
+                for element in soup.find_all(text=True):
+                    element_text = element.strip()
+                    if ('预计上调' in element_text or '预计下调' in element_text) and '元/吨' in element_text:
+                        forecast_text = element_text
+                        break
+            
+            if not forecast_text:
                 self._forecast_info = "暂无预告信息"
                 return
             
-            time_match = re.search(r'油价\s*(\d{1,2}月\d{1,2}日)(\d{1,2})时\s*调整', hint_text)
-            if not time_match:
-                time_match = re.search(r'油价\s*(\d{1,2}月\d{1,2}日)(\d{1,2})时', hint_text)
+            # 清理文本：移除多余空格和换行
+            forecast_text = ' '.join(forecast_text.split())
             
-            if not time_match:
-                self._forecast_info = "暂无预告信息"
+            # 提取调整日期和时间
+            date_match = re.search(r'下次油价\s*(\d{1,2}月\d{1,2}日)(\d{1,2})时调整', forecast_text)
+            if not date_match:
+                # 尝试其他可能的格式
+                date_match = re.search(r'(\d{1,2}月\d{1,2}日)(\d{1,2})时调整', forecast_text)
+            
+            if not date_match:
+                self._forecast_info = "解析日期失败"
                 return
             
-            date_str = time_match.group(1)
-            hour = int(time_match.group(2))
+            date_str = date_match.group(1)  # 例如: 3月9日
+            hour = int(date_match.group(2))  # 例如: 24
             
+            # 处理24时转换为下一天
             if hour == 24:
                 date_match = re.match(r'(\d{1,2})月(\d{1,2})日', date_str)
                 if date_match:
@@ -190,7 +210,9 @@ class OilPriceDataCoordinator:
                     day = int(date_match.group(2))
                     day += 1
                     
-                    month_days = {1:31, 2:28, 3:31, 4:30, 5:31, 6:30, 7:31, 8:31, 9:30, 10:31, 11:30, 12:31}
+                    # 简单月份边界处理
+                    month_days = {1:31, 2:28, 3:31, 4:30, 5:31, 6:30,
+                                7:31, 8:31, 9:30, 10:31, 11:30, 12:31}
                     
                     if day > month_days.get(month, 31):
                         day = 1
@@ -199,17 +221,58 @@ class OilPriceDataCoordinator:
                             month = 1
                     
                     date_str = f"{month}月{day}日"
+                    hour = 0  # 24时转换为下一天的0时
             
-            price_match = re.search(r'(上调|上涨|下跌)([\d.]+元/升-[\d.]+元/升)', hint_text)
-            if not price_match:
-                self._forecast_info = "暂无预告信息"
-                return
+            # 提取调整方向和幅度
+            direction = None
+            amount_per_ton = None
+            amount_per_liter_min = None
+            amount_per_liter_max = None
             
-            direction = price_match.group(1)
-            amount = price_match.group(2)
-            amount = re.sub(r'\s+', '', amount)
+            # 查找上调或下调信息
+            if '上调' in forecast_text:
+                direction = '上调'
+            elif '下调' in forecast_text:
+                direction = '下调'
             
-            self._forecast_info = f"{date_str}{direction}{amount}"
+            # 提取吨位调整幅度
+            ton_match = re.search(r'预计(?:上调|下调)\s*(\d+)\s*元/吨', forecast_text)
+            if ton_match:
+                amount_per_ton = int(ton_match.group(1))
+            
+            # 提取升位调整幅度范围
+            liter_match = re.search(r'\(([\d.]+)元/升-([\d.]+)元/升\)', forecast_text)
+            if liter_match:
+                amount_per_liter_min = float(liter_match.group(1))
+                amount_per_liter_max = float(liter_match.group(2))
+            else:
+                # 尝试其他格式
+                liter_match = re.search(r'([\d.]+)元/升-([\d.]+)元/升', forecast_text)
+                if liter_match:
+                    amount_per_liter_min = float(liter_match.group(1))
+                    amount_per_liter_max = float(liter_match.group(2))
+            
+            # 构建预告信息字符串
+            forecast_info_parts = []
+            
+            if date_str and hour is not None:
+                if hour == 0:
+                    forecast_info_parts.append(f"下次调整时间：{date_str} 0时")
+                else:
+                    forecast_info_parts.append(f"下次调整时间：{date_str} {hour}时")
+            
+            if direction and amount_per_ton:
+                forecast_info_parts.append(f"预计{direction} {amount_per_ton}元/吨")
+            
+            if amount_per_liter_min and amount_per_liter_max:
+                forecast_info_parts.append(f"约{amount_per_liter_min}-{amount_per_liter_max}元/升")
+            
+            if forecast_info_parts:
+                self._forecast_info = "，".join(forecast_info_parts)
+            else:
+                self._forecast_info = "解析预告信息失败"
+                
+            _LOGGER.debug("解析到的预告信息: %s", self._forecast_info)
             
         except Exception as err:
             _LOGGER.error("解析预告信息时发生错误: %s", err)
