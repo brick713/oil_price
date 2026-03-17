@@ -167,7 +167,7 @@ class OilPriceDataCoordinator:
                 textinfo = text_node.strip()
                 if re.search(r'\s*(\d{1,2}月\d{1,2}日)\s*(\d{1,2})\s*时\s*调整', textinfo):
                     hint_text_parts.append(textinfo)
-                if '预计上调' in textinfo:
+                if re.search(r'上调|上涨|下跌', textinfo):
                     hint_text_parts.append(textinfo)
             hint_text = ' '.join(hint_text_parts)
             _LOGGER.debug("提取到的预告文本: %s", hint_text)
