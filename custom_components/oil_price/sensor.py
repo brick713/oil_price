@@ -170,7 +170,6 @@ class OilPriceDataCoordinator:
                 if re.search(r'上调|上涨|下跌|下调', textinfo):
                     hint_text_parts.append(textinfo)
             hint_text = ' '.join(hint_text_parts)
-            _LOGGER.debug("提取到的预告文本: %s", hint_text)
             time_match = re.search(r'油价\s*(\d{1,2}月\d{1,2}日)\s*(\d{1,2})\s*时\s*调整', hint_text)
             if not time_match:
                 _LOGGER.debug("未找到时间信息")
@@ -195,8 +194,7 @@ class OilPriceDataCoordinator:
                             month = 1
                     
                     date_str = f"{month}月{day}日"
-            price_match = re.search(r'(上调|上涨|下跌|下调).*?([\d.]+元/升-[\d.]+元/升)', hint_text)
-            _LOGGER.debug("提取到的预告价格信息: %s", price_match)
+            price_match = re.search(r'(上调|上涨|下跌|下调).*?([\d.]+元/升[^\d]+[\d.]+元/升)', hint_text)
             if not price_match:
                 _LOGGER.debug("解析错误时间信息: %s", price_match)
                 return
